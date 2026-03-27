@@ -13,13 +13,14 @@ int main() {
         // store it in a string buffer
         // - how to manage their size, in case of long input?
         //      - start with static sized string buffer
+        printf("mysh> ");
         fgets(input, LINE_MAX, stdin);
 
         // with the input string, probably have to parse it into commands and arguments?
         // need string manipulation
         char *prog = strtok(input, " ");
         if (prog != NULL) {
-            printf("Run the following program: %s", prog);
+            printf("Run the following program: %s\n", prog);
         }
     }
 
