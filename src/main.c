@@ -2,6 +2,8 @@
 #include <limits.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 int main() {
 
@@ -20,8 +22,25 @@ int main() {
         // need string manipulation
         char *prog = strtok(input, " ");
         if (prog != NULL) {
-            printf("Run the following program: %s\n", prog);
+            // printf("Run the following program: %s\n", prog);
         }
+        const char *args[] = {prog, NULL};
+
+        pid_t pid = fork();
+        switch (pid) {
+            case -1:
+                perror("fork failed\n");
+                // if fork fails, don't know what to do next
+            case 0:
+                // printf("This is child with pid %d\n", getpid());
+                execvp(prog, args);
+                exit(0);
+            default:
+                wait(NULL);
+                // printf("This is parent with pid %d\n", pid);
+        }
+
+
     }
 
     return 0;
