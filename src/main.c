@@ -5,10 +5,14 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+
+#define CMD_DELIM " "
+
 int main() {
 
     // printf("The longest number of character input for stdin is: %d bytes.\n", LINE_MAX);
     char input[LINE_MAX];
+    const char* cmd_delim = " ";
 
     while (true) {
         // read user input from stdin
@@ -18,13 +22,18 @@ int main() {
         printf("mysh> ");
         fgets(input, LINE_MAX, stdin);
 
+		if (strcmp(input, "\n") == 0) continue;
+
         // with the input string, probably have to parse it into commands and arguments?
-        // need string manipulation
-        char *prog = strtok(input, " ");
-        if (prog != NULL) {
-            // printf("Run the following program: %s\n", prog);
+        char *token = strtok(input, CMD_DELIM);
+		const char *exec = token;
+
+		// parse additional arguments
+        while (token != NULL) {
+            token = strtok(NULL, cmd_delim);
         }
-        const char *args[] = {prog, NULL};
+
+        printf("Run executable: %s\n", exec);
 
         pid_t pid = fork();
         switch (pid) {
@@ -33,14 +42,12 @@ int main() {
                 // if fork fails, don't know what to do next
             case 0:
                 // printf("This is child with pid %d\n", getpid());
-                execvp(prog, args);
+                // execvp(prog, args);
                 exit(0);
             default:
                 wait(NULL);
                 // printf("This is parent with pid %d\n", pid);
         }
-
-
     }
 
     return 0;
