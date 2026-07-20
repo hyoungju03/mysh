@@ -48,6 +48,11 @@ int main() {
 		// printf("\n");
 		
 		const char *file = argv[0];
+		
+		if (strcmp(file, "cd") == 0) {
+			chdir(argv[1]);
+			continue;
+		}
 
         pid_t pid = fork();
         switch (pid) {
