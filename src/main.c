@@ -7,14 +7,11 @@
 #include <libgen.h>
 
 #define CMD_DELIM " \n"
-#define BIN_DIR "/bin"
 
 
 int main() {
 
-    // printf("The longest number of character input for stdin is: %d bytes.\n", LINE_MAX);
     char input[LINE_MAX];
-    const char* cmd_delim = " ";
 
 	// contains current working directory
 	char cwd[PATH_MAX];
@@ -49,13 +46,6 @@ int main() {
 			continue;
 		}
 
-		// // DEBUG: print all parsed arg elements
-		// for (int i = 0; i < arg_count; i++) {
-		// 	printf("arg[%d]: %s", i, argv[i]);
-		// 	if (i < arg_count-1) printf(", ");
-		// }
-		// printf("\n");
-		
 		const char *file = argv[0];
 		
 		if (strcmp(file, "cd") == 0) {
