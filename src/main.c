@@ -31,40 +31,39 @@ int main() {
 			argv[arg_count] = token;
 			arg_count += 1;
 		} 
+		// arg array must end with NULL pointer
+		argv[arg_count] = NULL;
+
 		// empty arg list
 		if (arg_count == 0) {
 			// printf("Empty command...\n");
 			continue;
 		}
+
+		// // DEBUG: print all parsed arg elements
+		// for (int i = 0; i < arg_count; i++) {
+		// 	printf("arg[%d]: %s", i, argv[i]);
+		// 	if (i < arg_count-1) printf(", ");
+		// }
+		// printf("\n");
 		
 		const char *file = argv[0];
-		
 
-		for (int i = 0; i < arg_count; i++) {
-			printf("arg[%d]: %s", i, argv[i]);
-			if (i < arg_count-1) printf(", ");
-		}
-		printf("\n");
-
-		// char exec_path[PATH_MAX];
-		// int res = snprintf(exec_path, sizeof(exec_path), "%s/%s", BIN_DIR, exec);
-
-		// if (res < 0) printf("Buffer overflow: executable path longer than PATH_MAX\n");
-        // // printf("Run executable: %s\n", exec_path);
-		// char *const args[] = {"ls", NULL};
-
-        // pid_t pid = fork();
-        // switch (pid) {
-        //     case -1:
-        //         perror("fork failed\n");
-        //         // if fork fails, don't know what to do next
-        //     case 0:
-        //         // printf("This is child with pid %d\n", getpid());
-        //         execvp(exec, args);
-        //     default:
-        //         wait(NULL);
-        //         // printf("This is parent with pid %d\n", pid);
-        // }
+        pid_t pid = fork();
+        switch (pid) {
+            case -1:
+                perror("fork failed\n");
+            case 0:
+				// move child process into different process group
+				// setpgid(0, 0);
+				printf("Child PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
+                execvp(file, argv);
+				exit(0);
+            default:
+				// setpgid(0, 0);
+				printf("Parent PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
+                wait(NULL);
+        }
     }
 
     return 0;
