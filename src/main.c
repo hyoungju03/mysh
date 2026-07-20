@@ -50,7 +50,9 @@ int main() {
 		const char *file = argv[0];
 		
 		if (strcmp(file, "cd") == 0) {
-			chdir(argv[1]);
+			if (chdir(argv[1]) == -1) {
+				printf("%s: no such file or directory: %s\n", file, argv[1]);
+			}
 			continue;
 		}
 
