@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <libgen.h>
 
 #define CMD_DELIM " \n"
 #define BIN_DIR "/bin"
@@ -15,10 +16,18 @@ int main() {
     char input[LINE_MAX];
     const char* cmd_delim = " ";
 
+	// contains current working directory
+	char cwd[PATH_MAX];
+	if (getcwd(cwd, sizeof(cwd)) == NULL) {
+		perror("failed to fetch current working directory...\n");
+		exit(1);
+	}
+	char *current_path = basename(cwd);
+
     while (true) {
         // read user input from stdin
         // store it in a string buffer
-        printf("mysh> ");
+        printf("mysh> %s ~ ", current_path);
         fgets(input, LINE_MAX, stdin);
 
 		// max number of arguments?
@@ -48,6 +57,19 @@ int main() {
 		// printf("\n");
 		
 		const char *file = argv[0];
+		
+		if (strcmp(file, "cd") == 0) {
+			if (chdir(argv[1]) == -1) {
+				printf("%s: no such file or directory: %s\n", file, argv[1]);
+			} else {
+				if (getcwd(cwd, sizeof(cwd)) == NULL) {
+					perror("failed to fetch current working directory...\n");
+					exit(1);
+				}
+				current_path = basename(cwd);
+			}
+			continue;
+		}
 
         pid_t pid = fork();
         switch (pid) {
