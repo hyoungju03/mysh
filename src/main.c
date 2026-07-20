@@ -56,12 +56,12 @@ int main() {
             case 0:
 				// move child process into different process group
 				// setpgid(0, 0);
-				printf("Child PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
+				// printf("Child PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
                 execvp(file, argv);
 				exit(0);
             default:
 				// setpgid(0, 0);
-				printf("Parent PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
+				// printf("Parent PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
                 wait(NULL);
         }
     }
