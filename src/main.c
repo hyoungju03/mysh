@@ -5,8 +5,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#define CMD_DELIM " \n"
+#define BIN_DIR "/bin"
 
-#define CMD_DELIM " "
 
 int main() {
 
@@ -17,37 +18,53 @@ int main() {
     while (true) {
         // read user input from stdin
         // store it in a string buffer
-        // - how to manage their size, in case of long input?
-        //      - start with static sized string buffer
         printf("mysh> ");
         fgets(input, LINE_MAX, stdin);
 
-		if (strcmp(input, "\n") == 0) continue;
+		// max number of arguments?
+		const int MAX_N_ARG = 10;
+		char *argv[MAX_N_ARG];
 
-        // with the input string, probably have to parse it into commands and arguments?
-        char *token = strtok(input, CMD_DELIM);
-		const char *exec = token;
+		char *token;
+		int arg_count = 0;
+		for (token = strtok(input, CMD_DELIM); token; token = strtok(NULL, CMD_DELIM)) {
+			argv[arg_count] = token;
+			arg_count += 1;
+		} 
+		// empty arg list
+		if (arg_count == 0) {
+			// printf("Empty command...\n");
+			continue;
+		}
+		
+		const char *file = argv[0];
+		
 
-		// parse additional arguments
-        while (token != NULL) {
-            token = strtok(NULL, cmd_delim);
-        }
+		for (int i = 0; i < arg_count; i++) {
+			printf("arg[%d]: %s", i, argv[i]);
+			if (i < arg_count-1) printf(", ");
+		}
+		printf("\n");
 
-        printf("Run executable: %s\n", exec);
+		// char exec_path[PATH_MAX];
+		// int res = snprintf(exec_path, sizeof(exec_path), "%s/%s", BIN_DIR, exec);
 
-        pid_t pid = fork();
-        switch (pid) {
-            case -1:
-                perror("fork failed\n");
-                // if fork fails, don't know what to do next
-            case 0:
-                // printf("This is child with pid %d\n", getpid());
-                // execvp(prog, args);
-                exit(0);
-            default:
-                wait(NULL);
-                // printf("This is parent with pid %d\n", pid);
-        }
+		// if (res < 0) printf("Buffer overflow: executable path longer than PATH_MAX\n");
+        // // printf("Run executable: %s\n", exec_path);
+		// char *const args[] = {"ls", NULL};
+
+        // pid_t pid = fork();
+        // switch (pid) {
+        //     case -1:
+        //         perror("fork failed\n");
+        //         // if fork fails, don't know what to do next
+        //     case 0:
+        //         // printf("This is child with pid %d\n", getpid());
+        //         execvp(exec, args);
+        //     default:
+        //         wait(NULL);
+        //         // printf("This is parent with pid %d\n", pid);
+        // }
     }
 
     return 0;
