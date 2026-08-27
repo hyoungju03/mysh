@@ -7,6 +7,8 @@
 #include <libgen.h>
 #include <signal.h>
 
+#include <fcntl.h>
+
 #define CMD_DELIM " \n"
 
 
@@ -38,10 +40,23 @@ int main() {
 
 		char *token;
 		int arg_count = 0;
+
+		// Flag for output redirection
+		unsigned int out_redir = 0;
+		char *redir_file;
+
 		for (token = strtok(input, CMD_DELIM); token; token = strtok(NULL, CMD_DELIM)) {
+			// Look for output redirection indicator '>'
+			if (strcmp(token, ">") == 0) {
+				out_redir = 1;
+				redir_file = strtok(NULL, CMD_DELIM);
+				printf("OUTPUT REDIRECTED TO FILE: %s\n", redir_file);
+				break;
+			}
 			argv[arg_count] = token;
 			arg_count += 1;
-		} 
+		}
+
 		// arg array must end with NULL pointer
 		argv[arg_count] = NULL;
 
@@ -52,6 +67,13 @@ int main() {
 		}
 
 		const char *file = argv[0];
+		printf("Run executable: %s\n", file);
+		if (arg_count > 1) {
+			printf("Arguments for the executable: \n");
+			for (int i = 1; i < arg_count; ++i) {
+				printf("%s ", argv[i]);
+			}
+		}
 		
 		if (strcmp(file, "cd") == 0) {
 			if (chdir(argv[1]) == -1) {
@@ -89,6 +111,12 @@ int main() {
 
 				setpgid(0, 0);
 				// printf("Child PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
+
+				// Implement output redirection
+				if (out_redir) {
+					int redir_fd = open(redir_file, O_CREAT | O_RDWR);
+					dup2(redir_fd, 1);
+				}
 				
                 execvp(file, argv);
 				exit(0);
