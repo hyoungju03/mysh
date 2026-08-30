@@ -43,6 +43,7 @@ int main() {
 
 		// Flag for output redirection
 		unsigned int out_redir = 0;
+		unsigned int in_redir = 0;
 		char *redir_file;
 
 		for (token = strtok(input, CMD_DELIM); token; token = strtok(NULL, CMD_DELIM)) {
@@ -50,7 +51,13 @@ int main() {
 			if (strcmp(token, ">") == 0) {
 				out_redir = 1;
 				redir_file = strtok(NULL, CMD_DELIM);
-				printf("OUTPUT REDIRECTED TO FILE: %s\n", redir_file);
+				// printf("OUTPUT REDIRECTED TO FILE: %s\n", redir_file);
+				break;
+			}
+			// look for input redirection indicator '<'
+			if (strcmp(token, "<") == 0) {
+				in_redir = 1;
+				redir_file = strtok(NULL, CMD_DELIM);
 				break;
 			}
 			argv[arg_count] = token;
@@ -116,6 +123,11 @@ int main() {
 				if (out_redir) {
 					int redir_fd = open(redir_file, O_CREAT | O_RDWR);
 					dup2(redir_fd, 1);
+				}
+
+				if (in_redir) {
+					int redir_fd = open(redir_file, O_RDWR);
+					dup2(redir_fd, 0);
 				}
 				
                 execvp(file, argv);
