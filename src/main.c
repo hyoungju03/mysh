@@ -74,13 +74,13 @@ int main() {
 		}
 
 		const char *file = argv[0];
-		printf("Run executable: %s\n", file);
-		if (arg_count > 1) {
-			printf("Arguments for the executable: \n");
-			for (int i = 1; i < arg_count; ++i) {
-				printf("%s ", argv[i]);
-			}
-		}
+		// printf("Run executable: %s\n", file);
+		// if (arg_count > 1) {
+		// 	// printf("Arguments for the executable: \n");
+		// 	for (int i = 1; i < arg_count; ++i) {
+		// 		printf("%s ", argv[i]);
+		// 	}
+		// }
 		
 		if (strcmp(file, "cd") == 0) {
 			if (chdir(argv[1]) == -1) {
