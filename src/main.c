@@ -19,6 +19,7 @@ int main() {
 	sigaddset(&set, SIGTTOU);
 
     char input[LINE_MAX];
+	int data_pipe[2];
 
 	// contains current working directory
 	char cwd[PATH_MAX];
@@ -39,14 +40,15 @@ int main() {
 		char *argv[MAX_N_ARG];
 
 		char *token;
-		int arg_count = 0;
+		int argc = 0;
 
 		// Flag for output redirection
 		unsigned int out_redir = 0;
 		unsigned int in_redir = 0;
-		char *redir_file;
+		char *redir_file;		
 
 		for (token = strtok(input, CMD_DELIM); token; token = strtok(NULL, CMD_DELIM)) {
+
 			// Look for output redirection indicator '>'
 			if (strcmp(token, ">") == 0) {
 				out_redir = 1;
@@ -60,55 +62,78 @@ int main() {
 				redir_file = strtok(NULL, CMD_DELIM);
 				break;
 			}
-			argv[arg_count] = token;
-			arg_count += 1;
+			// look for piping indicator '|'
+			if (strcmp(token, "|") == 0) {
+				// if (pipe(data_pipe) == -1) {
+				// 	fprintf(stderr, "Pipe creation failed.\n");
+				// }
+
+				// arg array must end with NULL pointer
+				argv[argc] = NULL;
+				
+				// ignore empty command
+				if (argc == 0) {
+					continue;
+				}
+
+				create_task(argc, argv);
+				
+				// Reset argument list
+				argc = 0;
+			} 
+			
+			argv[argc] = token;
+			argc += 1;
 		}
 
 		// arg array must end with NULL pointer
-		argv[arg_count] = NULL;
+		argv[argc] = NULL;
 
 		// empty arg list
-		if (arg_count == 0) {
+		if (argc == 0) {
 			// printf("Empty command...\n");
 			continue;
 		}
-
-		const char *file = argv[0];
-		// printf("Run executable: %s\n", file);
-		// if (arg_count > 1) {
-		// 	// printf("Arguments for the executable: \n");
-		// 	for (int i = 1; i < arg_count; ++i) {
-		// 		printf("%s ", argv[i]);
-		// 	}
-		// }
 		
-		if (strcmp(file, "cd") == 0) {
-			if (chdir(argv[1]) == -1) {
-				printf("%s: no such file or directory: %s\n", file, argv[1]);
-			} else {
-				if (getcwd(cwd, sizeof(cwd)) == NULL) {
-					perror("failed to fetch current working directory...\n");
-					exit(1);
-				}
-				current_path = basename(cwd);
+    }
+
+    return 0;
+}
+
+
+void create_task(int argc, char* argv[]) {
+
+	const char* file = argv[0];
+
+	if (strcmp(file, "cd") == 0) {
+		if (chdir(argv[1]) == -1) {
+			printf("%s: no such file or directory: %s\n", file, argv[1]);
+		} else {
+			if (getcwd(cwd, sizeof(cwd)) == NULL) {
+				perror("failed to fetch current working directory...\n");
+				exit(1);
 			}
-			continue;
+			current_path = basename(cwd);
 		}
+		continue;
+	}
 
-		int sync_pipe[2];
-		if (pipe(sync_pipe) < 0) {
-			perror("pipe failed");
-			exit(EXIT_FAILURE);
-		}
+	int sync_pipe[2];
+	if (pipe(sync_pipe) < 0) {
+		perror("pipe failed");
+		exit(EXIT_FAILURE);
+	}
 
-        pid_t pid = fork();
+	pid_t pid = fork();
         switch (pid) {
 
             case -1:
                 perror("Fork failed!\n");
 				exit(1);
 
-            case 0:
+            case 0: // CHILD PROCESS STARTS HERE
+
+				// BLOCK UNTIL PARENT MOVES CHILD TO DIFFERENT PROCGRP
 				close(sync_pipe[1]);
 				char dummy;
 				if (read(sync_pipe[0], &dummy, 1) < 0) {
@@ -116,24 +141,31 @@ int main() {
 				}
 				close(sync_pipe[0]);
 
+				// CONFIRM CHILD IS IN NEW PROCGRP
 				setpgid(0, 0);
 				// printf("Child PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
 
-				// Implement output redirection
+
+				// CONSTRUCT INPUT ARGUMENT VECTOR
+				if (in_redir) {
+					int redir_fd = open(redir_file, O_RDWR);
+					dup2(redir_fd, 0);
+				}
+
+				// SET STDOUT
 				if (out_redir) {
 					int redir_fd = open(redir_file, O_CREAT | O_RDWR);
 					dup2(redir_fd, 1);
 				}
 
-				if (in_redir) {
-					int redir_fd = open(redir_file, O_RDWR);
-					dup2(redir_fd, 0);
-				}
-				
-                execvp(file, argv);
+
+				// RUN EXEC
+                execvp(argv[0], argv);
 				exit(0);
 
-            default:
+            default: // THE PARENT (SHELL) CONTINUES HERE
+
+
 				// Close the read-end; the parent only writes to this pipe
 				close(sync_pipe[0]);
 
@@ -165,7 +197,4 @@ int main() {
 				}
 				sigprocmask(SIG_UNBLOCK, &set, NULL);
         }
-    }
-
-    return 0;
 }
