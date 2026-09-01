@@ -15,17 +15,17 @@
 #define MAX_N_ARG 10
 
 
-typedef struct Cmd {
+typedef struct {
 	char *exec_file;		// name of the executable
 
 	int argc;				// argument count
-	char **argv;	// arguments for the executable
+	char **argv;			// arguments for the executable
 	
 	int ifd;				// input file descriptor
 	int ofd;				// output file descriptor
-};
+} Cmd;
 
-struct Cmd *jobs[MAX_N_JOB];
+Cmd *jobs[MAX_N_JOB];
 
 
 int main() {
@@ -44,10 +44,11 @@ int main() {
 	}
 	char *current_path = basename(cwd);
 
-	int pipe_open = 0;
 	int data_pipe[2];
 
-    while (true) {
+
+
+    while (1) {
 
         printf("mysh> %s ~ ", current_path);
 		fflush(stdout);
@@ -56,14 +57,16 @@ int main() {
 
 		int cmdc = 0;
 
+		Cmd *cmd = malloc(sizeof(Cmd));
+		cmd->ifd = 0;
+		cmd->ofd = 1;
+
 		int argc = 0;
-		char *argv[MAX_N_ARG];
+		char **argv = malloc(MAX_N_ARG * sizeof(char *));
 		char *redir_file;
 
 		char *token;
-
-		// for (token = strtok(input, CMD_DELIM); token; token = strtok(NULL, CMD_DELIM)) {
-		while (token = strtok(input, CMD_DELIM) || pipe_open) {
+		for (token = strtok(input, CMD_DELIM); token; token = strtok(NULL, CMD_DELIM)) {
 
 			if (token == NULL) {
 				printf("\npipe> ");
@@ -71,57 +74,57 @@ int main() {
 				fgets(input, LINE_MAX, stdin);
 			}
 
-			// if met with command delimiter, create Cmd object
-			if (true) {
+			if (strcmp(token, ">") == 0) {
+				redir_file = strtok(NULL, CMD_DELIM);
+				int fd = open(redir_file, O_CREAT | O_RDWR);
+				cmd->ofd = fd;
+			}
+			else if (strcmp(token, "<") == 0) {
+				redir_file = strtok(NULL, CMD_DELIM);
+				int fd = open(redir_file, O_RDONLY);
+				cmd->ifd = fd;
+			}
+			else if (strcmp(token, "|") == 0) {
+				pipe(data_pipe);
 
-				// arg array must end with NULL pointer
 				argv[argc] = NULL;
-
-				struct Cmd *cmd;
-				jobs[cmdc] = cmd;
-				cmdc += 1;
-
 				cmd->exec_file = argv[0];
 				cmd->argc = argc;
 				cmd->argv = argv;
+				cmd->ofd = data_pipe[1];
+				jobs[cmdc++] = cmd;
 
-				if (pipe_open) {
-					cmd->ifd = data_pipe[0];
-					pipe_open = 0;
-				}
-
-				// Look for output redirection indicator '>'
-				if (strcmp(token, ">") == 0) {
-					// treat the next token as redirection file name
-					redir_file = strtok(NULL, CMD_DELIM);
-
-					int fd = open(redir_file, O_CREAT | O_RDWR);
-					cmd->ofd = fd;
-				}
-				// look for input redirection indicator '<'
-				if (strcmp(token, "<") == 0) {
-					// treat the next token as redirection file name
-					redir_file = strtok(NULL, CMD_DELIM);
-
-					int fd = open(redir_file, O_RDONLY);
-					cmd->ifd = fd;
-				}
-				// look for pipe indicator '|'
-				if (strcmp(token, "|") == 0) {
-					pipe_open = 1;
-					pipe(data_pipe);
-					cmd->ofd = data_pipe[1];
-				}
-
+				cmd = malloc(sizeof(Cmd));
+				cmd->ifd = data_pipe[0];
+				cmd->ofd = 1;
+				argc = 0;
+				argv = malloc(MAX_N_ARG * sizeof(char *));
 			}
-			argv[argc] = token;
-			argc += 1;
+			else {
+				argv[argc] = token;
+				argc += 1;
+			}
 		}
 
-		if (pipe_open) {
-
+		if (argc > 0) {
+			// arg array must end with NULL pointer
+			argv[argc] = NULL;
+			cmd->exec_file = argv[0];
+			cmd->argc = argc;
+			cmd->argv = argv;
+			jobs[cmdc++] = cmd;
 		}
-		
+
+		for (int i = 0; i < cmdc; i++) {
+			Cmd *cmd = jobs[i];
+			printf("Exec name: %s\n", cmd->exec_file);
+			printf("Arguments: ");
+			for (int argc = 0; argc < cmd->argc; argc++) {
+				printf("%s ", cmd->argv[argc]);
+			}
+			printf("\n\n");
+		}
+
 		// if (strcmp(file, "cd") == 0) {
 		// 	if (chdir(argv[1]) == -1) {
 		// 		printf("%s: no such file or directory: %s\n", file, argv[1]);
@@ -135,77 +138,82 @@ int main() {
 		// 	continue;
 		// }
 
-		int sync_pipe[2];
-		if (pipe(sync_pipe) < 0) {
-			perror("pipe failed");
-			exit(EXIT_FAILURE);
-		}
+		// int sync_pipe[2];
+		// if (pipe(sync_pipe) < 0) {
+		// 	perror("pipe failed");
+		// 	exit(EXIT_FAILURE);
+		// }
 
-        pid_t pid = fork();
-        switch (pid) {
+        // pid_t pid = fork();
+        // switch (pid) {
 
-            case -1:
-                perror("Fork failed!\n");
-				exit(1);
+        //     case -1:
+        //         perror("Fork failed!\n");
+		// 		exit(1);
 
-            case 0:
-				close(sync_pipe[1]);
-				char dummy;
-				if (read(sync_pipe[0], &dummy, 1) < 0) {
-					perror("child read failed");
-				}
-				close(sync_pipe[0]);
+        //     case 0:
+		// 		close(sync_pipe[1]);
+		// 		char dummy;
+		// 		if (read(sync_pipe[0], &dummy, 1) < 0) {
+		// 			perror("child read failed");
+		// 		}
+		// 		close(sync_pipe[0]);
 
-				setpgid(0, 0);
-				// printf("Child PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
+		// 		setpgid(0, 0);
+		// 		// printf("Child PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
 
-				// Implement output redirection
-				if (out_redir) {
-					int redir_fd = open(redir_file, O_CREAT | O_RDWR);
-					dup2(redir_fd, 1);
-				}
+		// 		// Implement output redirection
+		// 		if (out_redir) {
+		// 			int redir_fd = open(redir_file, O_CREAT | O_RDWR);
+		// 			dup2(redir_fd, 1);
+		// 		}
 
-				if (in_redir) {
-					int redir_fd = open(redir_file, O_RDWR);
-					dup2(redir_fd, 0);
-				}
+		// 		if (in_redir) {
+		// 			int redir_fd = open(redir_file, O_RDWR);
+		// 			dup2(redir_fd, 0);
+		// 		}
 				
-                execvp(file, argv);
-				exit(0);
+        //         execvp(file, argv);
+		// 		exit(0);
 
-            default:
-				// Close the read-end; the parent only writes to this pipe
-				close(sync_pipe[0]);
+        //     default:
+		// 		// Close the read-end; the parent only writes to this pipe
+		// 		close(sync_pipe[0]);
 
-				// printf("Parent PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
-				pid_t child_pid = pid;
-				char notification_byte = 'x';
+		// 		// printf("Parent PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
+		// 		pid_t child_pid = pid;
+		// 		char notification_byte = 'x';
 
-				// move child process into a new process group
-				setpgid(child_pid, child_pid);
-				// change the child process group as foreground process group of the session
-				if (tcsetpgrp(STDIN_FILENO, pid) < 0) {
-					printf("Changing foreground process group failed.\n");
-					exit(1);
-				}
+		// 		// move child process into a new process group
+		// 		setpgid(child_pid, child_pid);
+		// 		// change the child process group as foreground process group of the session
+		// 		if (tcsetpgrp(STDIN_FILENO, pid) < 0) {
+		// 			printf("Changing foreground process group failed.\n");
+		// 			exit(1);
+		// 		}
 
-				// Housekeeping is complete. Write a byte to unblock the child.
-				if (write(sync_pipe[1], &notification_byte, 1) < 0) {
-					perror("parent write failed");
-				}
-				close(sync_pipe[1]);
+		// 		// Housekeeping is complete. Write a byte to unblock the child.
+		// 		if (write(sync_pipe[1], &notification_byte, 1) < 0) {
+		// 			perror("parent write failed");
+		// 		}
+		// 		close(sync_pipe[1]);
 				
-                wait(NULL);
+        //         wait(NULL);
 				
-				sigprocmask(SIG_BLOCK, &set, NULL);
-				// gain back foreground process group
-				if (tcsetpgrp(STDIN_FILENO, getpgrp()) < 0) {
-					printf("Restoring foreground process group failed.\n");
-					exit(1);
-				}
-				sigprocmask(SIG_UNBLOCK, &set, NULL);
-        }
+		// 		sigprocmask(SIG_BLOCK, &set, NULL);
+		// 		// gain back foreground process group
+		// 		if (tcsetpgrp(STDIN_FILENO, getpgrp()) < 0) {
+		// 			printf("Restoring foreground process group failed.\n");
+		// 			exit(1);
+		// 		}
+		// 		sigprocmask(SIG_UNBLOCK, &set, NULL);
+        // }
     }
+
+	// printf("works until here");
+
+
+	exit(0);
 
     return 0;
 }
