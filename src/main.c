@@ -44,14 +44,14 @@ int main() {
 	}
 	char *current_path = basename(cwd);
 
-	// variable reserved for piping
-	int using_pipe = 0;
+	int pipe_open = 0;
 	int data_pipe[2];
 
     while (true) {
-        // read user input from stdin
-        // store it in a string buffer
+
         printf("mysh> %s ~ ", current_path);
+		fflush(stdout);
+
         fgets(input, LINE_MAX, stdin);
 
 		int cmdc = 0;
@@ -61,7 +61,15 @@ int main() {
 		char *redir_file;
 
 		char *token;
-		for (token = strtok(input, CMD_DELIM); token; token = strtok(NULL, CMD_DELIM)) {
+
+		// for (token = strtok(input, CMD_DELIM); token; token = strtok(NULL, CMD_DELIM)) {
+		while (token = strtok(input, CMD_DELIM) || pipe_open) {
+
+			if (token == NULL) {
+				printf("\npipe> ");
+				fflush(stdout);
+				fgets(input, LINE_MAX, stdin);
+			}
 
 			// if met with command delimiter, create Cmd object
 			if (true) {
@@ -77,8 +85,9 @@ int main() {
 				cmd->argc = argc;
 				cmd->argv = argv;
 
-				if (using_pipe) {
+				if (pipe_open) {
 					cmd->ifd = data_pipe[0];
+					pipe_open = 0;
 				}
 
 				// Look for output redirection indicator '>'
@@ -88,8 +97,6 @@ int main() {
 
 					int fd = open(redir_file, O_CREAT | O_RDWR);
 					cmd->ofd = fd;
-					
-					break;
 				}
 				// look for input redirection indicator '<'
 				if (strcmp(token, "<") == 0) {
@@ -98,12 +105,10 @@ int main() {
 
 					int fd = open(redir_file, O_RDONLY);
 					cmd->ifd = fd;
-
-					break;
 				}
 				// look for pipe indicator '|'
 				if (strcmp(token, "|") == 0) {
-					using_pipe = 1;
+					pipe_open = 1;
 					pipe(data_pipe);
 					cmd->ofd = data_pipe[1];
 				}
@@ -111,6 +116,10 @@ int main() {
 			}
 			argv[argc] = token;
 			argc += 1;
+		}
+
+		if (pipe_open) {
+
 		}
 		
 		// if (strcmp(file, "cd") == 0) {
