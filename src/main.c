@@ -10,6 +10,18 @@
 #include <fcntl.h>
 
 #define CMD_DELIM " \n"
+#define MAX_N_ARG 10
+
+
+typedef struct cmd {
+	char *exec_file;		// name of the executable
+
+	int argc;				// argument count
+	char *argv[MAX_N_ARG];	// arguments for the executable
+	
+	int ifd;				// input file descriptor
+	int ofd;				// output file descriptor
+};
 
 
 int main() {
@@ -35,7 +47,7 @@ int main() {
         fgets(input, LINE_MAX, stdin);
 
 		// max number of arguments?
-		const int MAX_N_ARG = 10;
+		// const int MAX_N_ARG = 10;
 		char *argv[MAX_N_ARG];
 
 		char *token;
