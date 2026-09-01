@@ -15,17 +15,17 @@
 #define MAX_N_ARG 10
 
 
-typedef struct cmd {
+typedef struct Cmd {
 	char *exec_file;		// name of the executable
 
 	int argc;				// argument count
-	char *argv[MAX_N_ARG];	// arguments for the executable
+	char **argv;	// arguments for the executable
 	
 	int ifd;				// input file descriptor
 	int ofd;				// output file descriptor
 };
 
-struct cmd *jobs[MAX_N_JOB];
+struct Cmd *jobs[MAX_N_JOB];
 
 
 int main() {
@@ -44,72 +44,87 @@ int main() {
 	}
 	char *current_path = basename(cwd);
 
+	// variable reserved for piping
+	int using_pipe = 0;
+	int data_pipe[2];
+
     while (true) {
         // read user input from stdin
         // store it in a string buffer
         printf("mysh> %s ~ ", current_path);
         fgets(input, LINE_MAX, stdin);
 
-		// max number of arguments?
-		// const int MAX_N_ARG = 10;
+		int cmdc = 0;
+
+		int argc = 0;
 		char *argv[MAX_N_ARG];
-
-		char *token;
-		int arg_count = 0;
-
-		// Flag for output redirection
-		unsigned int out_redir = 0;
-		unsigned int in_redir = 0;
 		char *redir_file;
 
+		char *token;
 		for (token = strtok(input, CMD_DELIM); token; token = strtok(NULL, CMD_DELIM)) {
-			// Look for output redirection indicator '>'
-			if (strcmp(token, ">") == 0) {
-				out_redir = 1;
-				redir_file = strtok(NULL, CMD_DELIM);
-				// printf("OUTPUT REDIRECTED TO FILE: %s\n", redir_file);
-				break;
-			}
-			// look for input redirection indicator '<'
-			if (strcmp(token, "<") == 0) {
-				in_redir = 1;
-				redir_file = strtok(NULL, CMD_DELIM);
-				break;
-			}
-			argv[arg_count] = token;
-			arg_count += 1;
-		}
 
-		// arg array must end with NULL pointer
-		argv[arg_count] = NULL;
+			// if met with command delimiter, create Cmd object
+			if (true) {
 
-		// empty arg list
-		if (arg_count == 0) {
-			// printf("Empty command...\n");
-			continue;
-		}
+				// arg array must end with NULL pointer
+				argv[argc] = NULL;
 
-		const char *file = argv[0];
-		// printf("Run executable: %s\n", file);
-		// if (arg_count > 1) {
-		// 	// printf("Arguments for the executable: \n");
-		// 	for (int i = 1; i < arg_count; ++i) {
-		// 		printf("%s ", argv[i]);
-		// 	}
-		// }
-		
-		if (strcmp(file, "cd") == 0) {
-			if (chdir(argv[1]) == -1) {
-				printf("%s: no such file or directory: %s\n", file, argv[1]);
-			} else {
-				if (getcwd(cwd, sizeof(cwd)) == NULL) {
-					perror("failed to fetch current working directory...\n");
-					exit(1);
+				struct Cmd *cmd;
+				jobs[cmdc] = cmd;
+				cmdc += 1;
+
+				cmd->exec_file = argv[0];
+				cmd->argc = argc;
+				cmd->argv = argv;
+
+				if (using_pipe) {
+					cmd->ifd = data_pipe[0];
 				}
-				current_path = basename(cwd);
+
+				// Look for output redirection indicator '>'
+				if (strcmp(token, ">") == 0) {
+					// treat the next token as redirection file name
+					redir_file = strtok(NULL, CMD_DELIM);
+
+					int fd = open(redir_file, O_CREAT | O_RDWR);
+					cmd->ofd = fd;
+					
+					break;
+				}
+				// look for input redirection indicator '<'
+				if (strcmp(token, "<") == 0) {
+					// treat the next token as redirection file name
+					redir_file = strtok(NULL, CMD_DELIM);
+
+					int fd = open(redir_file, O_RDONLY);
+					cmd->ifd = fd;
+
+					break;
+				}
+				// look for pipe indicator '|'
+				if (strcmp(token, "|") == 0) {
+					using_pipe = 1;
+					pipe(data_pipe);
+					cmd->ofd = data_pipe[1];
+				}
+
 			}
-			continue;
+			argv[argc] = token;
+			argc += 1;
 		}
+		
+		// if (strcmp(file, "cd") == 0) {
+		// 	if (chdir(argv[1]) == -1) {
+		// 		printf("%s: no such file or directory: %s\n", file, argv[1]);
+		// 	} else {
+		// 		if (getcwd(cwd, sizeof(cwd)) == NULL) {
+		// 			perror("failed to fetch current working directory...\n");
+		// 			exit(1);
+		// 		}
+		// 		current_path = basename(cwd);
+		// 	}
+		// 	continue;
+		// }
 
 		int sync_pipe[2];
 		if (pipe(sync_pipe) < 0) {
