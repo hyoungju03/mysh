@@ -10,6 +10,8 @@
 #include <fcntl.h>
 
 #define CMD_DELIM " \n"
+
+#define MAX_N_JOB 10
 #define MAX_N_ARG 10
 
 
@@ -22,6 +24,8 @@ typedef struct cmd {
 	int ifd;				// input file descriptor
 	int ofd;				// output file descriptor
 };
+
+struct cmd *jobs[MAX_N_JOB];
 
 
 int main() {
