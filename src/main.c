@@ -46,8 +46,6 @@ int main() {
 
 	int data_pipe[2];
 
-
-
     while (1) {
 
         printf("mysh> %s ~ ", current_path);
@@ -76,7 +74,7 @@ int main() {
 
 			if (strcmp(token, ">") == 0) {
 				redir_file = strtok(NULL, CMD_DELIM);
-				int fd = open(redir_file, O_CREAT | O_RDWR);
+				int fd = open(redir_file, O_CREAT | O_WRONLY | O_TRUNC, 0644);
 				cmd->ofd = fd;
 			}
 			else if (strcmp(token, "<") == 0) {
@@ -115,15 +113,15 @@ int main() {
 			jobs[cmdc++] = cmd;
 		}
 
-		for (int i = 0; i < cmdc; i++) {
-			Cmd *cmd = jobs[i];
-			printf("Exec name: %s\n", cmd->exec_file);
-			printf("Arguments: ");
-			for (int argc = 0; argc < cmd->argc; argc++) {
-				printf("%s ", cmd->argv[argc]);
-			}
-			printf("\n\n");
-		}
+		// for (int i = 0; i < cmdc; i++) {
+		// 	Cmd *cmd = jobs[i];
+		// 	printf("Exec name: %s\n", cmd->exec_file);
+		// 	printf("Arguments: ");
+		// 	for (int argc = 0; argc < cmd->argc; argc++) {
+		// 		printf("%s ", cmd->argv[argc]);
+		// 	}
+		// 	printf("\n\n");
+		// }
 
 		// if (strcmp(file, "cd") == 0) {
 		// 	if (chdir(argv[1]) == -1) {
@@ -138,82 +136,71 @@ int main() {
 		// 	continue;
 		// }
 
-		// int sync_pipe[2];
-		// if (pipe(sync_pipe) < 0) {
-		// 	perror("pipe failed");
-		// 	exit(EXIT_FAILURE);
-		// }
+		for (int i = 0; i < cmdc; i++) {
+			Cmd *cmd = jobs[i];
 
-        // pid_t pid = fork();
-        // switch (pid) {
+			int sync_pipe[2];
+			if (pipe(sync_pipe) < 0) {
+				perror("pipe failed");
+				exit(EXIT_FAILURE);
+			}
 
-        //     case -1:
-        //         perror("Fork failed!\n");
-		// 		exit(1);
+			pid_t pid = fork();
+			switch (pid) {
 
-        //     case 0:
-		// 		close(sync_pipe[1]);
-		// 		char dummy;
-		// 		if (read(sync_pipe[0], &dummy, 1) < 0) {
-		// 			perror("child read failed");
-		// 		}
-		// 		close(sync_pipe[0]);
+				case -1:
+					perror("Fork failed!\n");
+					exit(1);
 
-		// 		setpgid(0, 0);
-		// 		// printf("Child PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
+				case 0:
+					close(sync_pipe[1]);
+					char dummy;
+					if (read(sync_pipe[0], &dummy, 1) < 0) {
+						perror("child read failed");
+					}
+					close(sync_pipe[0]);
 
-		// 		// Implement output redirection
-		// 		if (out_redir) {
-		// 			int redir_fd = open(redir_file, O_CREAT | O_RDWR);
-		// 			dup2(redir_fd, 1);
-		// 		}
+					setpgid(0, 0);
+					// printf("Child PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
 
-		// 		if (in_redir) {
-		// 			int redir_fd = open(redir_file, O_RDWR);
-		// 			dup2(redir_fd, 0);
-		// 		}
-				
-        //         execvp(file, argv);
-		// 		exit(0);
+					dup2(cmd->ifd, 0);
+					dup2(cmd->ofd, 1);
+					
+					execvp(cmd->exec_file, cmd->argv);
 
-        //     default:
-		// 		// Close the read-end; the parent only writes to this pipe
-		// 		close(sync_pipe[0]);
+				default:
+					// Close the read-end; the parent only writes to this pipe
+					close(sync_pipe[0]);
 
-		// 		// printf("Parent PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
-		// 		pid_t child_pid = pid;
-		// 		char notification_byte = 'x';
+					// printf("Parent PID: %ld, PGID: %ld\n", (long)getpid(), (long)getpgrp());
+					pid_t child_pid = pid;
+					char notification_byte = 'x';
 
-		// 		// move child process into a new process group
-		// 		setpgid(child_pid, child_pid);
-		// 		// change the child process group as foreground process group of the session
-		// 		if (tcsetpgrp(STDIN_FILENO, pid) < 0) {
-		// 			printf("Changing foreground process group failed.\n");
-		// 			exit(1);
-		// 		}
+					// move child process into a new process group
+					setpgid(child_pid, child_pid);
+					// change the child process group as foreground process group of the session
+					if (tcsetpgrp(STDIN_FILENO, pid) < 0) {
+						printf("Changing foreground process group failed.\n");
+						exit(1);
+					}
 
-		// 		// Housekeeping is complete. Write a byte to unblock the child.
-		// 		if (write(sync_pipe[1], &notification_byte, 1) < 0) {
-		// 			perror("parent write failed");
-		// 		}
-		// 		close(sync_pipe[1]);
-				
-        //         wait(NULL);
-				
-		// 		sigprocmask(SIG_BLOCK, &set, NULL);
-		// 		// gain back foreground process group
-		// 		if (tcsetpgrp(STDIN_FILENO, getpgrp()) < 0) {
-		// 			printf("Restoring foreground process group failed.\n");
-		// 			exit(1);
-		// 		}
-		// 		sigprocmask(SIG_UNBLOCK, &set, NULL);
-        // }
+					// Housekeeping is complete. Write a byte to unblock the child.
+					if (write(sync_pipe[1], &notification_byte, 1) < 0) {
+						perror("parent write failed");
+					}
+					close(sync_pipe[1]);
+					
+					wait(NULL);
+					
+					sigprocmask(SIG_BLOCK, &set, NULL);
+					// gain back foreground process group
+					if (tcsetpgrp(STDIN_FILENO, getpgrp()) < 0) {
+						printf("Restoring foreground process group failed.\n");
+						exit(1);
+					}
+					sigprocmask(SIG_UNBLOCK, &set, NULL);
+			}
+		}
     }
-
-	// printf("works until here");
-
-
-	exit(0);
-
     return 0;
 }
